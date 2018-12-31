@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+command=$1
+
+fail() {
+    echo $1 >/dev/stderr
+    exit 1
+}
+
+list() {
+    repos=$(aws codecommit list-repositories \
+        --output text \
+        --query repositories[].repositoryName)
+
+    for repo in $repos; do echo $repo; done
+}
+
+create() {
+    repo=$1
+
+    if [ -z "$repo" ]; then
+        fail "Usage: git coco create <repo>"
+    fi
+
+    aws codecommit create-repository \
+        --repository-name $repo \
+        --output text \
+        --query repositoryMetadata.cloneUrlHttp
+}
+
+remove() {
+    repo=$1
+
+    if [ -z "$repo" ]; then
+        fail "Usage: git coco rm <repo>"
+    fi
+
+    output=$(aws codecommit delete-repository \
+        --repository-name $repo)
+
+    read -p "Are you sure? [Y/n] " confirmation
+
+    if [ "$confirmation" != "Y" ]; then
+        exit
+    fi
+
+    if [ -z "$output" ]; then
+        fail "No such repo: $repo"
+    else
+        echo "Successfully removed $repo"
+    fi
+}
+
+clone() {
+    repo=$1
+
+    if [ -z "$repo" ]; then
+        fail "Usage: git coco clone <repo>"
+    fi
+
+    url=$(aws codecommit get-repository \
+        --repository-name $repo \
+        --output text \
+        --query repositoryMetadata.cloneUrlHttp)
+
+    # Get current profile
+    aws=aws
+    profile=$(aws configure list | grep '^\s*profile' | awk '{print $2}')
+    if [ "$profile" != "<not" ]; then
+        aws+=" --profile '$profile'"
+    fi
+
+    if [ -z "$url" ]; then
+        fail "No such repo: $repo"
+    else
+        git clone \
+            -c credential.helper="!$aws codecommit credential-helper \$@" \
+            -c credential.UseHttpPath=true \
+            $url
+    fi
+}
+
+case $command in
+    ls)
+        list
+        ;;
+    create)
+        create $2
+        ;;
+    clone)
+        clone $2
+        ;;
+    rm)
+        remove $2
+        ;;
+    init)
+        create $2 >/dev/null
+        clone $2
+        ;;
+    *)
+        fail "Usage: git coco ls|create|clone|rm|init"
+        ;;
+esac
