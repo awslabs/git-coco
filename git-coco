@@ -83,6 +83,26 @@ clone() {
     fi
 }
 
+pr() {
+    branch=$1
+    target=$2
+
+    if [ -z "$branch" ]; then
+        branch=$(git rev-parse --abbrev-ref HEAD)
+    fi
+
+    if [ -z "$target" ]; then
+        target="master"
+    fi
+
+    url=$(git remote get-url origin)
+    repo=$(basename "$url")
+
+    aws codecommit create-pull-request \
+        --title $branch \
+        --targets repositoryName=$repo,sourceReference=$branch,destinationReference=$target
+}
+
 case $command in
     ls)
         list
@@ -100,7 +120,10 @@ case $command in
         create $2 >/dev/null
         clone $2
         ;;
+    pr)
+        pr $2 $3
+        ;;
     *)
-        fail "Usage: git coco ls|create|clone|rm|init"
+        fail "Usage: git coco ls|create|clone|rm|init|pr"
         ;;
 esac
