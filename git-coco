@@ -98,9 +98,13 @@ pr() {
     url=$(git remote get-url origin)
     repo=$(basename "$url")
 
-    aws codecommit create-pull-request \
+    id=$(aws codecommit create-pull-request \
         --title $branch \
-        --targets repositoryName=$repo,sourceReference=$branch,destinationReference=$target
+        --targets repositoryName=$repo,sourceReference=$branch,destinationReference=$target \
+        --output text \
+        --query pullRequest.pullRequestId)
+
+    echo "https://console.aws.amazon.com/codesuite/codecommit/repositories/${repo}/pull-requests/${id}/changes"
 }
 
 case $command in
