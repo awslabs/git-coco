@@ -20,13 +20,15 @@ list() {
 
 create() {
     repo=$1
+    description=$2
 
-    if [ -z "$repo" ]; then
-        fail "Usage: git coco create <repo>"
+    if [ -z "$repo" -o -z "$description" ]; then
+        fail "Usage: git coco create <repo> <description>"
     fi
 
     aws codecommit create-repository \
         --repository-name $repo \
+        --repository-description $description \
         --output text \
         --query repositoryMetadata.cloneUrlHttp
 }
