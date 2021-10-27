@@ -123,7 +123,7 @@ case $command in
         remove $2
         ;;
     init)
-        create $2 >/dev/null
+        create $2 "" > /dev/null
         clone $2
         ;;
     pr)
