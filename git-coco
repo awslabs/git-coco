@@ -3,51 +3,107 @@
 # Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-command=$1
+command="$1"
+shift
 
 fail() {
-    echo $1 >/dev/stderr
+    echo "$1" >&2
     exit 1
 }
 
-list() {
-    repos=$(aws codecommit list-repositories \
-        --output text \
-        --query repositories[].repositoryName)
+# Wrapper function around the AWS CLI tool
+#
+# It will invoke the AWS CLI tool with the currently selected
+# profile or provide a properly quoted string which does so.
+_profile=''
+_aws_cli=''
+aws_cli() {
+    local aws
+    local aws_quoted_str profile_quoted_str
 
-    for repo in $repos; do echo $repo; done
+    # If there's a profile specified, make sure we
+    # pass that around
+    if [ -z "$_profile" ]; then
+        _profile="$(aws configure list | awk '/^[[:space:]]*profile/{print $2}')"
+    fi
+
+    # Similarly, use the same AWS CLI
+    if [ -z "$_aws_cli" ]; then
+        _aws_cli="$(command -v aws)"
+    fi
+
+    aws=("$_aws_cli")
+    aws_quoted_str="$(set | awk '/^_aws_cli=/{ sub(/^_aws_cli=/, ""); print; }')"
+    if [ "$_profile" != "<not" ]; then
+        aws+=(--profile "$_profile")
+
+        profile_quoted_str="$(set | awk '/^_profile=/{ sub(/^_profile=/, ""); print; }')"
+        aws_quoted_str+=" --profile $profile_quoted_str"
+    fi
+
+    if [ "$1" = '@print_quoted@' ]; then
+        echo "${aws_quoted_str}"
+        return
+    fi
+
+    "${aws[@]}" "$@"
+}
+
+list() {
+    local repos repo
+
+    if [ "$#" != '0' ]; then
+        fail 'Usage: git coco list'
+    fi
+
+    repos=(
+        $(aws_cli codecommit list-repositories \
+            --output text \
+            --query repositories[].repositoryName)
+    )
+
+    for repo in "${repos[@]}"; do echo "$repo"; done
 }
 
 create() {
-    repo=$1
-    description=$2
+    local repo description
 
-    if [ -z "$repo" -o -z "$description" ]; then
+    repo="$1"
+    description="$2"
+
+    if [ "$#" -lt '1' ] || [ "$#" -gt '2' ] || [ -z "$repo" ]; then
         fail "Usage: git coco create <repo> <description>"
     fi
 
-    aws codecommit create-repository \
-        --repository-name $repo \
-        --repository-description $description \
+    aws_cli codecommit create-repository \
+        --repository-name "$repo" \
+        --repository-description "$description" \
         --output text \
         --query repositoryMetadata.cloneUrlHttp
 }
 
 remove() {
-    repo=$1
+    local repo
+    local output confirmation
 
-    if [ -z "$repo" ]; then
+    repo="$1"
+
+    if [ "$#" != '1' ] || [ -z "$repo" ]; then
         fail "Usage: git coco rm <repo>"
     fi
 
-    output=$(aws codecommit delete-repository \
-        --repository-name $repo)
+    read -r -p "Are you sure? [Y/n] " confirmation
 
-    read -p "Are you sure? [Y/n] " confirmation
+    case "$confirmation" in
+        Y|y)
+            ;;
+        *)
+            fail "Aborting"
+            ;;
+    esac
 
-    if [ "$confirmation" != "Y" ]; then
-        exit
-    fi
+    output="$(aws_cli codecommit delete-repository \
+        --repository-name "$repo")"
 
     if [ -z "$output" ]; then
         fail "No such repo: $repo"
@@ -57,37 +113,36 @@ remove() {
 }
 
 clone() {
-    repo=$1
+    local repo
+    local url
 
-    if [ -z "$repo" ]; then
+    repo="$1"
+
+    if [ "$#" != '1' ] || [ -z "$repo" ]; then
         fail "Usage: git coco clone <repo>"
     fi
 
-    url=$(aws codecommit get-repository \
-        --repository-name $repo \
+    url="$(aws_cli codecommit get-repository \
+        --repository-name "$repo" \
         --output text \
-        --query repositoryMetadata.cloneUrlHttp)
-
-    # Get current profile
-    aws=aws
-    profile=$(aws configure list | grep '^\s*profile' | awk '{print $2}')
-    if [ "$profile" != "<not" ]; then
-        aws+=" --profile '$profile'"
-    fi
+        --query repositoryMetadata.cloneUrlHttp)"
 
     if [ -z "$url" ]; then
         fail "No such repo: $repo"
     else
         git clone \
-            -c credential.helper="!$aws codecommit credential-helper \$@" \
+            -c credential.helper="!$(aws_cli @print_quoted@) codecommit credential-helper \"\$@\"" \
             -c credential.UseHttpPath=true \
-            $url
+            "$url"
     fi
 }
 
 pr() {
-    branch=$1
-    target=$2
+    local branch target
+    local url repo id
+
+    branch="$1"
+    target="$2"
 
     if [ -z "$branch" ]; then
         branch=$(git rev-parse --abbrev-ref HEAD)
@@ -97,37 +152,37 @@ pr() {
         target="master"
     fi
 
-    url=$(git remote get-url origin)
-    repo=$(basename "$url")
+    url="$(git remote get-url origin)"
+    repo="$(basename "$url")"
 
-    id=$(aws codecommit create-pull-request \
-        --title $branch \
-        --targets repositoryName=$repo,sourceReference=$branch,destinationReference=$target \
+    id="$(aws_cli codecommit create-pull-request \
+        --title "$branch" \
+        --targets "repositoryName=$repo,sourceReference=$branch,destinationReference=$target" \
         --output text \
-        --query pullRequest.pullRequestId)
+        --query pullRequest.pullRequestId)"
 
     echo "https://console.aws.amazon.com/codesuite/codecommit/repositories/${repo}/pull-requests/${id}/changes"
 }
 
-case $command in
+case "$command" in
     ls)
-        list
+        list "$@" || exit 1
         ;;
     create)
-        create $2
+        create "$@" || exit 1
         ;;
     clone)
-        clone $2
+        clone "$@" || exit 1
         ;;
     rm)
-        remove $2
+        remove "$@" || exit 1
         ;;
     init)
-        create $2 >/dev/null
-        clone $2
+        create "$@" >/dev/null
+        clone "$1" || return 1
         ;;
     pr)
-        pr $2 $3
+        pr "$@" || exit 1
         ;;
     *)
         fail "Usage: git coco ls|create|clone|rm|init|pr"
