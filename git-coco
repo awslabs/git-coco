@@ -11,33 +11,37 @@ fail() {
     exit 1
 }
 
-# Wrapper function around the AWS CLI tool
-#
-# It will invoke the AWS CLI tool with the currently selected
-# profile or provide a properly quoted string which does so.
 _profile=''
-_aws_cli=''
-aws_cli() {
-    local aws
-    local aws_quoted_str profile_quoted_str
-
+_profile() {
     # If there's a profile specified, make sure we
     # pass that around
     if [ -z "$_profile" ]; then
         _profile="$(aws configure list | awk '/^[[:space:]]*profile/{print $2}')"
     fi
+    echo "$_profile"
+}
 
-    # Similarly, use the same AWS CLI
+# Wrapper function around the AWS CLI tool
+#
+# It will invoke the AWS CLI tool with the currently selected
+# profile or provide a properly quoted string which does so.
+_aws_cli=''
+aws_cli() {
+    local aws profile
+    local aws_quoted_str profile_quoted_str
+
+    profile="$(_profile)"
+
     if [ -z "$_aws_cli" ]; then
         _aws_cli="$(command -v aws)"
     fi
 
     aws=("$_aws_cli")
     aws_quoted_str="$(set | awk '/^_aws_cli=/{ sub(/^_aws_cli=/, ""); print; }')"
-    if [ "$_profile" != "<not" ]; then
-        aws+=(--profile "$_profile")
+    if [ "$profile" != "<not" ]; then
+        aws+=(--profile "$profile")
 
-        profile_quoted_str="$(set | awk '/^_profile=/{ sub(/^_profile=/, ""); print; }')"
+        profile_quoted_str="$(set | awk '/^profile=/{ sub(/^profile=/, ""); print; }')"
         aws_quoted_str+=" --profile $profile_quoted_str"
     fi
 
@@ -115,6 +119,8 @@ remove() {
 clone() {
     local repo
     local url
+    local grc_path
+    local profile
 
     repo="$1"
 
@@ -122,19 +128,50 @@ clone() {
         fail "Usage: git coco clone <repo>"
     fi
 
-    url="$(aws_cli codecommit get-repository \
-        --repository-name "$repo" \
-        --output text \
-        --query repositoryMetadata.cloneUrlHttp)"
+    # If the repo was specified as an URL, use that URL
+    case "$repo" in
+        codecommit:*|http://*|https://*)
+            url="$repo"
+            ;;
+    esac
 
+    # If no URL was specified, lookup the URL from AWS CodeCommit
     if [ -z "$url" ]; then
-        fail "No such repo: $repo"
-    else
-        git clone \
-            -c credential.helper="!$(aws_cli @print_quoted@) codecommit credential-helper \"\$@\"" \
-            -c credential.UseHttpPath=true \
-            "$url"
+        grc_path="$(command -v git-remote-codecommit)"
+        if [ -n "$grc_path" ]; then
+            profile="$(_profile)"
+            url="$(aws codecommit get-repository \
+                --repository-name "$repo" \
+                --output text \
+                --query repositoryMetadata.Arn \
+                | \
+                awk -v profile="$profile" -F: '{
+                    region = $4;
+                    repo = $NF;
+                    print "codecommit::" region "://" profile "@" repo
+                }')"
+        else
+            url="$(aws_cli codecommit get-repository \
+                --repository-name "$repo" \
+                --output text \
+                --query repositoryMetadata.cloneUrlHttp)"
+        fi
     fi
+
+    case "$url" in
+        '')
+            fail "No such repo: $repo"
+            ;;
+        codecommit:*)
+            git clone "$url"
+            ;;
+        *)
+            git clone \
+                -c credential.helper="!$(aws_cli @print_quoted@) codecommit credential-helper \"\$@\"" \
+                -c credential.UseHttpPath=true \
+                "$url"
+            ;;
+    esac
 }
 
 pr() {
