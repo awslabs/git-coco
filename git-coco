@@ -145,7 +145,7 @@ pr() {
     target="$2"
 
     if [ -z "$branch" ]; then
-        branch=$(git rev-parse --abbrev-ref HEAD)
+        branch="$(git rev-parse --abbrev-ref HEAD)"
     fi
 
     if [ -z "$target" ]; then
