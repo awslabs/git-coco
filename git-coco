@@ -18,7 +18,12 @@ _profile() {
     if [ -z "$_profile" ]; then
         _profile="$(aws configure list | awk '/^[[:space:]]*profile/{print $2}')"
     fi
-    echo "$_profile"
+
+    if [ "$_profile" = "<not" ]; then
+        echo ""
+    else
+        echo "$_profile"
+    fi
 }
 
 # Wrapper function around the AWS CLI tool
@@ -38,7 +43,7 @@ aws_cli() {
 
     aws=("$_aws_cli")
     aws_quoted_str="$(set | awk '/^_aws_cli=/{ sub(/^_aws_cli=/, ""); print; }')"
-    if [ "$profile" != "<not" ]; then
+    if [ -n "$profile" ]; then
         aws+=(--profile "$profile")
 
         profile_quoted_str="$(set | awk '/^profile=/{ sub(/^profile=/, ""); print; }')"
@@ -148,7 +153,11 @@ clone() {
                 awk -v profile="$profile" -F: '{
                     region = $4;
                     repo = $NF;
-                    print "codecommit::" region "://" profile "@" repo
+                    if (profile != "") {
+                        print "codecommit::" region "://" profile "@" repo
+                    } else {
+                        print "codecommit::" region "://" repo
+                    }
                 }')"
         else
             url="$(aws_cli codecommit get-repository \
