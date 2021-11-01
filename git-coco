@@ -28,7 +28,7 @@ create() {
 
     aws codecommit create-repository \
         --repository-name $repo \
-        --repository-description $description \
+        --repository-description "$description" \
         --output text \
         --query repositoryMetadata.cloneUrlHttp
 }
@@ -114,7 +114,7 @@ case $command in
         list
         ;;
     create)
-        create $2
+        create $2 "$3"
         ;;
     clone)
         clone $2
@@ -123,7 +123,7 @@ case $command in
         remove $2
         ;;
     init)
-        create $2 >/dev/null
+        create $2 "$3" > /dev/null
         clone $2
         ;;
     pr)
