@@ -223,7 +223,7 @@ prlist() {
     local header="%-10s %-60s %-8s %-100s\n"
     local format="%-10s %-60s %-8s %s <- %s (%s)\n"
 
-    # Retrive list of PRs for specified repo
+    # Retrieve list of PRs for specified repo
     local list_of_prs="$(aws_cli codecommit list-pull-requests \
         --repository-name "$repo" \
         --pull-request-status OPEN \
