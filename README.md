@@ -31,3 +31,13 @@ Performs the equivalent of a `git coco create` followed by `git coco clone`. The
 * `git coco pr <from> <to>`
 
 Creates a pull request for the current repository that compares `<from>` (or the current branch if omitted) with `<to>` (or `master` if omitted).
+
+* `git coco prlist <repo>`
+
+Lists all open pull requests for a specified repository. Pull request information includes:
+- Pull Request ID
+- Pull Request Title
+- Pull Request Merge Status
+- Pull Request Destination Branch
+- Pull Request Source Branch
+- Pull Request Author

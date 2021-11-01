@@ -210,6 +210,47 @@ pr() {
     echo "https://console.aws.amazon.com/codesuite/codecommit/repositories/${repo}/pull-requests/${id}/changes"
 }
 
+prlist() {
+    local repo list_of_prs pull_info
+    local dst_branch src_branch is_merge pull_id author title
+
+    repo="$1"
+
+    if [ -z "$repo" ]; then
+        fail "Usage: git coco prlist <repo>"
+    fi
+
+    local header="%-10s %-60s %-8s %-100s\n"
+    local format="%-10s %-60s %-8s %s <- %s (%s)\n"
+
+    # Retrive list of PRs for specified repo
+    local list_of_prs="$(aws_cli codecommit list-pull-requests \
+        --repository-name "$repo" \
+        --pull-request-status OPEN \
+        --query="pullRequestIds" \
+        --output text)"
+    printf "$header" "PR #" "Title" "Merge" "Branch"
+
+    # Get and parse information for each PR
+    for pull_request in $list_of_prs; do
+        local pull_info=$(aws_cli codecommit get-pull-request \
+        --pull-request-id "$pull_request" \
+        --query "pullRequest.{PR: pullRequestId, Title: title, Merge: pullRequestTargets[0].mergeMetadata.isMerged, DstBranch: pullRequestTargets[0].destinationReference, SrcBranch: pullRequestTargets[0].sourceReference, Author: authorArn}" \
+        --output text)
+
+        local dst_branch src_branch is_merge pull_id author title
+
+        IFS=$'\t'
+        read -r author dst_branch is_merge pull_id src_branch title <<< "${pull_info}"
+        
+        author=$(echo $author | awk -F '/' '{print $NF}')
+        dst_branch=$(echo $dst_branch | awk -F 'refs/heads/' '{print $2}')
+        src_branch=$(echo $src_branch | awk -F 'refs/heads/' '{print $2}')
+
+        printf "$format" "$pull_id" "$title" "$is_merge" "$dst_branch" "$src_branch" "$author"
+    done
+}
+
 case "$command" in
     ls)
         list "$@" || exit 1
@@ -230,7 +271,10 @@ case "$command" in
     pr)
         pr "$@" || exit 1
         ;;
+    prlist)
+        prlist "$@" || exit 1
+        ;;
     *)
-        fail "Usage: git coco ls|create|clone|rm|init|pr"
+        fail "Usage: git coco ls|create|clone|rm|init|pr|prlist"
         ;;
 esac
