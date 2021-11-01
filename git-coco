@@ -56,10 +56,10 @@ list() {
         fail 'Usage: git coco list'
     fi
 
-    repos=(
-        $(aws_cli codecommit list-repositories \
+    read -r -a repos < <(
+        aws_cli codecommit list-repositories \
             --output text \
-            --query repositories[].repositoryName)
+            --query repositories[].repositoryName
     )
 
     for repo in "${repos[@]}"; do echo "$repo"; done
