@@ -14,28 +14,30 @@ fail() {
 url_parser() {
     local url
     local profile repo
-    local codecommit_regex="^codecommit::[a-z][a-z]-[a-z]+-[1-3]:\/\/"
+    local codecommit_grc_regex="^codecommit::[a-z][a-z]-[a-z]+-[1-3]:\/\/"
+    local codecommit_url_regex="^http[s]?:\/\/git-codecommit\."
 
     url="$1"
-    
+
     # codecommit:// url
-    if [[ $url =~ $codecommit_regex ]]; then
-        profile=$(echo $url | awk -F '[/@]' '{print $3}')
-        repo=$(echo $url | awk -F '[/@]' '{print $4}')
+    if [[ $url =~ $codecommit_grc_regex ]]; then
+        profile="$(echo $url | awk -F '[/@]' '{print $3}')"
+        repo="$(echo $url | awk -F '[/@]' '{print $4}')"
 
         # If no profile set repo to what was parsed to profile otherwise set parsed profile to global profile
         if [ -z "$repo" ]; then
-            repo=$profile
+            repo="$profile"
         else
-            $_profile=$profile
+            _profile="$profile"
         fi
 
     # https:// url
     else
-        repo=$(echo $url | awk -F '/' '{print $NF}')
-        repo=$(echo "${repo/\.git}")
+        if [[ $url =~ $codecommit_url_regex ]]; then
+            repo="$(echo $url | awk -F '/' '{print $NF}')"
+        fi
     fi
-    
+
     echo $repo
 }
 
@@ -246,9 +248,20 @@ prlist() {
 
     # Handle default case
     if [ -z "$repo" ]; then
-        local url=$(echo $(git remote -v) | awk -F ' ' '{print $2}')
-        repo=$(url_parser "$url")
-        echo "[-] No repo provided. Using current directory"
+        local urls=$(git remote -v | awk -F ' ' '{ print $2; }')
+
+        for url in $urls; do
+            repo="$(url_parser "$url")"
+
+            # Break out of loop if valid repo is found
+            if [[ ! -z "$repo" ]]; then
+                break
+            fi
+        done
+
+        if [ -z "$repo" ]; then
+            fail "No repository provided. Current directory does not have a valid codecommit repository."
+        fi
     fi
 
     local header="%-10s %-60s %-8s %-100s\n"
@@ -306,6 +319,6 @@ case "$command" in
         prlist "$@" || exit 1
         ;;
     *)
-        fail "[-] Usage: git coco ls|create|clone|rm|init|pr|prlist"
+        fail "Usage: git coco ls|create|clone|rm|init|pr|prlist"
         ;;
 esac
