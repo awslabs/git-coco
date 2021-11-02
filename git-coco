@@ -191,13 +191,9 @@ tag(){
 
     arn=$(get_arn $repo)
 
-    if [ -z "$arn" ]; then
-        fail "No such repo: $repo"
-    else
-        aws_cli codecommit tag-resource \
-            --resource-arn "$arn" \
-            --tags "$tags"
-    fi
+    aws_cli codecommit tag-resource \
+        --resource-arn "$arn" \
+        --tags "$tags"
 
 }
 
