@@ -179,9 +179,13 @@ tag(){
         --output text \
         --query repositoryMetadata.Arn)"
 
-    aws_cli codecommit tag-resource \
-        --resource-arn "$arn" \
-        --tags "$tags"
+    if [ -z "$arn" ]; then
+        fail "No such repo: $repo"
+    else
+        aws_cli codecommit tag-resource \
+            --resource-arn "$arn" \
+            --tags "$tags"
+    fi
 
 }
 
