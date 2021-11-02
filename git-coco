@@ -49,6 +49,21 @@ aws_cli() {
     "${aws[@]}" "$@"
 }
 
+get_arn(){
+    local repo
+    local region
+    local account_number
+    local arn
+
+    repo="$1"
+
+    region="$(aws_cli configure get region)"
+    account_number="$(aws_cli sts get-caller-identity --query 'Account' --output text )"
+    arn="arn:aws:codecommit:${region}:${account_number}:${repo}"
+
+    echo "$arn"
+}
+
 list() {
     local repos repo
 
@@ -164,6 +179,28 @@ pr() {
     echo "https://console.aws.amazon.com/codesuite/codecommit/repositories/${repo}/pull-requests/${id}/changes"
 }
 
+tag(){
+    local repo arn
+
+    repo="$1"
+    tags="$2"
+
+    if [ "$#" -lt '1' ] || [ "$#" -gt '2' ] || [ -z "$repo" ]; then
+        fail "Usage: git coco tag <repo> <tagKey=tagValue,tagKey2=tagValue2,...>"
+    fi
+
+    arn=$(get_arn $repo)
+
+    if [ -z "$arn" ]; then
+        fail "No such repo: $repo"
+    else
+        aws_cli codecommit tag-resource \
+            --resource-arn "$arn" \
+            --tags "$tags"
+    fi
+
+}
+
 case "$command" in
     ls)
         list "$@" || exit 1
@@ -183,6 +220,9 @@ case "$command" in
         ;;
     pr)
         pr "$@" || exit 1
+        ;;
+    tag)
+        tag "$@" || exit 1
         ;;
     *)
         fail "Usage: git coco ls|create|clone|rm|init|pr"

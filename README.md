@@ -31,3 +31,7 @@ Performs the equivalent of a `git coco create` followed by `git coco clone`. The
 * `git coco pr <from> <to>`
 
 Creates a pull request for the current repository that compares `<from>` (or the current branch if omitted) with `<to>` (or `master` if omitted).
+
+* `git coco tag <repo> <tagKey=tagValue,tagKey2=tagValue2,...>`
+
+Adds tags to CodeCommit repository
