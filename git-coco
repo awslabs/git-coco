@@ -274,9 +274,9 @@ prlist() {
 
         IFS=$'\t' read -r author dst_branch is_merge pull_id src_branch title <<< "${pull_info}"
 
-        author=$(echo $author | awk -F '/' '{print $NF}')
-        dst_branch=$(echo "${dst_branch/refs\/heads\/}")
-        src_branch=$(echo "${src_branch/refs\/heads\/}")
+        author="$(echo $author | awk -F '/' '{print $NF}')"
+        dst_branch="$(echo "${dst_branch/refs\/heads\/}")"
+        src_branch="$(echo "${src_branch/refs\/heads\/}")"
 
         printf "$format" "$pull_id" "$title" "$is_merge" "$dst_branch" "$src_branch" "$author"
     done
