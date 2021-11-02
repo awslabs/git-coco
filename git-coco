@@ -49,21 +49,6 @@ aws_cli() {
     "${aws[@]}" "$@"
 }
 
-get_arn(){
-    local repo
-    local region
-    local account_number
-    local arn
-
-    repo="$1"
-
-    region="$(aws_cli configure get region)"
-    account_number="$(aws_cli sts get-caller-identity --query 'Account' --output text )"
-    arn="arn:aws:codecommit:${region}:${account_number}:${repo}"
-
-    echo "$arn"
-}
-
 list() {
     local repos repo
 
@@ -189,7 +174,10 @@ tag(){
         fail "Usage: git coco tag <repo> <tagKey=tagValue,tagKey2=tagValue2,...>"
     fi
 
-    arn=$(get_arn $repo)
+    arn="$(aws_cli codecommit get-repository \
+        --repository-name "$repo" \
+        --output text \
+        --query repositoryMetadata.Arn)"
 
     aws_cli codecommit tag-resource \
         --resource-arn "$arn" \
