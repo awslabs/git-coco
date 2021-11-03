@@ -165,7 +165,10 @@ pr() {
 }
 
 tag(){
-    local repo arn
+    local repo
+    local tags
+    local arn
+
 
     repo="$1"
     tags="$2"
@@ -213,6 +216,6 @@ case "$command" in
         tag "$@" || exit 1
         ;;
     *)
-        fail "Usage: git coco ls|create|clone|rm|init|pr"
+        fail "Usage: git coco ls|create|clone|rm|init|pr|tag"
         ;;
 esac

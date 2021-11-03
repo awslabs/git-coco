@@ -34,4 +34,4 @@ Creates a pull request for the current repository that compares `<from>` (or the
 
 * `git coco tag <repo> <tagKey=tagValue,tagKey2=tagValue2,...>`
 
-Adds tags to CodeCommit repository
+Adds tags to CodeCommit repository. Tags will be added in additional to any other tags already set. Use for organizing repositories and labeling important information like team, or owner.
