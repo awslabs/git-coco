@@ -242,7 +242,7 @@ pr() {
 
 prlist() {
     local repo list_of_prs pull_info
-    local dst_branch src_branch is_merge pull_id author title
+    local dst_branch src_branch pull_id author title
 
     repo="$1"
 
@@ -264,9 +264,9 @@ prlist() {
         fi
     fi
 
-    local header="%-10s %-60s %-8s %-100s\n"
-    local format="%-10s %-60s %-8s %s <- %s (%s)\n"
-    local pr_query="pullRequest.{PR: pullRequestId, Title: title, Merge: pullRequestTargets[0].mergeMetadata.isMerged, DstBranch: pullRequestTargets[0].destinationReference, SrcBranch: pullRequestTargets[0].sourceReference, Author: authorArn}"
+    local header="%-10s %-60s %-100s\n"
+    local format="%-10s %-60s %s <- %s (%s)\n"
+    local pr_query="pullRequest.{PR: pullRequestId, Title: title, DstBranch: pullRequestTargets[0].destinationReference, SrcBranch: pullRequestTargets[0].sourceReference, Author: authorArn}"
 
     # Retrieve list of PRs for specified repo
     local list_of_prs="$(aws_cli codecommit list-pull-requests \
@@ -274,7 +274,7 @@ prlist() {
         --pull-request-status OPEN \
         --query="pullRequestIds" \
         --output text)"
-    printf "$header" "PR #" "Title" "Merge" "Branch"
+    printf "$header" "PR #" "Title" "Branch"
 
     # Get and parse information for each PR
     for pull_request in $list_of_prs; do
@@ -283,15 +283,15 @@ prlist() {
         --query "$pr_query" \
         --output text)"
 
-        local dst_branch src_branch is_merge pull_id author title
+        local dst_branch src_branch pull_id author title
 
-        IFS=$'\t' read -r author dst_branch is_merge pull_id src_branch title <<< "${pull_info}"
+        IFS=$'\t' read -r author dst_branch pull_id src_branch title <<< "${pull_info}"
 
         author="$(echo $author | awk -F '/' '{print $NF}')"
         dst_branch="$(echo "${dst_branch/refs\/heads\/}")"
         src_branch="$(echo "${src_branch/refs\/heads\/}")"
 
-        printf "$format" "$pull_id" "$title" "$is_merge" "$dst_branch" "$src_branch" "$author"
+        printf "$format" "$pull_id" "$title" "$dst_branch" "$src_branch" "$author"
     done
 }
 

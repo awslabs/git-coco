@@ -37,7 +37,6 @@ Creates a pull request for the current repository that compares `<from>` (or the
 Lists all open pull requests for a specified repository. If repository is not specified, git-coco will search for a valid repository from `git remote -v`. Pull request information includes:
 - Pull Request ID
 - Pull Request Title
-- Pull Request Merge Status
 - Pull Request Destination Branch
 - Pull Request Source Branch
 - Pull Request Author
