@@ -176,6 +176,7 @@ clone() {
             ;;
         *)
             git clone \
+                -c credential.helper="" \
                 -c credential.helper="!$(aws_cli @print_quoted@) codecommit credential-helper \"\$@\"" \
                 -c credential.UseHttpPath=true \
                 "$url"
