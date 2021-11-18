@@ -293,7 +293,7 @@ prlist() {
         src_branch="$(echo "${src_branch/refs\/heads\/}")"
         
         if [ "${#title}" -gt 60 ]; then
-            title="$(echo "${title}" | cut -c 1-57)..."
+            title="$(echo "${title:0:57}")..."
         fi
 
         printf "$format" "$pull_id" "$title" "$dst_branch" "$src_branch" "$author"
