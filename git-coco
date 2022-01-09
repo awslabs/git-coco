@@ -279,21 +279,24 @@ prlist() {
 
     # Get and parse information for each PR
     for pull_request in $list_of_prs; do
-        local pull_info="$(aws_cli codecommit get-pull-request \
-        --pull-request-id "$pull_request" \
-        --query "$pr_query" \
-        --output text)"
+        (
+            local pull_info="$(aws_cli codecommit get-pull-request \
+            --pull-request-id "$pull_request" \
+            --query "$pr_query" \
+            --output text)"
 
-        local dst_branch src_branch pull_id author title
+            local dst_branch src_branch pull_id author title
 
-        IFS=$'\t' read -r author dst_branch pull_id src_branch title <<< "${pull_info}"
+            IFS=$'\t' read -r author dst_branch pull_id src_branch title <<< "${pull_info}"
 
-        author="$(echo $author | awk -F '/' '{print $NF}')"
-        dst_branch="$(echo "${dst_branch/refs\/heads\/}")"
-        src_branch="$(echo "${src_branch/refs\/heads\/}")"
+            author="$(echo $author | awk -F '/' '{print $NF}')"
+            dst_branch="$(echo "${dst_branch/refs\/heads\/}")"
+            src_branch="$(echo "${src_branch/refs\/heads\/}")"
 
-        printf "$format" "$pull_id" "$title" "$dst_branch" "$src_branch" "$author"
+            printf "$format" "$pull_id" "$title" "$dst_branch" "$src_branch" "$author"
+        ) &
     done
+    wait
 }
 
 case "$command" in
